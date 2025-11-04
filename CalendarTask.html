@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskFlow - 任务管理</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #4a6fa5;
+            --secondary-color: #6b8cbc;
+            --accent-color: #ff7b54;
+            --light-color: #f5f7fa;
+            --dark-color: #2c3e50;
+            --border-radius: 8px;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --completed-color: #888;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f0f2f5;
+            color: var(--dark-color);
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        .sidebar {
+            width: 300px;
+            background-color: white;
+            padding: 20px;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            margin-bottom: 30px;
+            color: var(--primary-color);
+        }
+        
+        .logo i {
+            font-size: 24px;
+            margin-right: 10px;
+        }
+        
+        .logo h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        .section-title {
+            font-size: 18px;
+            margin: 20px 0 15px;
+            color: var(--dark-color);
+            border-bottom: 1px solid #eee;
+            padding-bottom: 8px;
+        }
+        
+        .task-input {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        
+        .task-input input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius) 0 0 var(--border-radius);
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        
+        .task-input input:focus {
+            border-color: var(--primary-color);
+        }
+        
+        .task-input button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0 20px;
+            border-radius: 0 var(--border-radius) var(--border-radius) 0;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .task-input button:hover {
+            background-color: var(--secondary-color);
+        }
+        
+        .task-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+        
+        .task-item {
+            background-color: var(--light-color);
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            border-radius: var(--border-radius);
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .task-item:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+        }
+        
+        .task-item .checkbox {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--primary-color);
+            border-radius: 50%;
+            margin-right: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .task-item.completed .checkbox {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .task-item.completed .task-text {
+            text-decoration: line-through;
+            color: var(--completed-color);
+        }
+        
+        .main-content {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+        }
+        
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        
+        .month-nav {
+            display: flex;
+            align-items: center;
+        }
+        
+        .month-nav button {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: var(--primary-color);
+            padding: 5px 10px;
+        }
+        
+        .current-month {
+            font-size: 24px;
+            font-weight: 600;
+            margin: 0 15px;
+        }
+        
+        .calendar {
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+        
+        .calendar-weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .calendar-weekdays div {
+            padding: 15px;
+            text-align: center;
+            font-weight: 600;
+        }
+        
+        .calendar-days {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+        }
+        
+        .calendar-day {
+            min-height: 120px;
+            padding: 10px;
+            border: 1px solid #eee;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .calendar-day:hover {
+            background-color: #f9f9f9;
+        }
+        
+        .calendar-day.empty {
+            background-color: #f5f5f5;
+            cursor: default;
+        }
+        
+        .calendar-day.today {
+            background-color: rgba(255, 123, 84, 0.1);
+        }
+        
+        .day-number {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .day-tasks {
+            font-size: 12px;
+            max-height: 80px;
+            overflow-y: auto;
+        }
+        
+        .day-task {
+            background-color: var(--light-color);
+            padding: 3px 6px;
+            border-radius: 4px;
+            margin-bottom: 3px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .day-task.completed {
+            text-decoration: line-through;
+            color: var(--completed-color);
+            opacity: 0.8;
+        }
+        
+        .day-task-checkbox {
+            width: 14px;
+            height: 14px;
+            border: 1px solid var(--primary-color);
+            border-radius: 50%;
+            margin-right: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 10px;
+            transition: background-color 0.2s;
+        }
+        
+        .day-task.completed .day-task-checkbox {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .day-task-text {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background-color: white;
+            width: 500px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 25px;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+        }
+        
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #888;
+        }
+        
+        .task-form input, .task-form textarea {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            outline: none;
+        }
+        
+        .task-form textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.3s;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--secondary-color);
+        }
+        
+        .btn-secondary {
+            background-color: #eee;
+            color: var(--dark-color);
+        }
+        
+        .btn-secondary:hover {
+            background-color: #ddd;
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                height: auto;
+            }
+            
+            .main-content {
+                padding: 20px;
+            }
+            
+            .calendar-day {
+                min-height: 80px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 左侧边栏 -->
+    <div class="sidebar">
+        <div class="logo">
+            <i class="fas fa-tasks"></i>
+            <h1>TaskFlow</h1>
+        </div>
+        
+        <h2 class="section-title">近期优先任务</h2>
+        
+        <div class="task-input">
+            <input type="text" id="new-task-input" placeholder="添加新任务...">
+            <button id="add-task-btn">添加</button>
+        </div>
+        
+        <div class="task-list" id="task-list">
+            <!-- 任务项将通过JavaScript动态添加 -->
+        </div>
+    </div>
+    
+    <!-- 主内容区 -->
+    <div class="main-content">
+        <div class="calendar-header">
+            <div class="month-nav">
+                <button id="prev-month"><i class="fas fa-chevron-left"></i></button>
+                <div class="current-month" id="current-month">2023年11月</div>
+                <button id="next-month"><i class="fas fa-chevron-right"></i></button>
+            </div>
+        </div>
+        
+        <div class="calendar">
+            <div class="calendar-weekdays">
+                <div>周日</div>
+                <div>周一</div>
+                <div>周二</div>
+                <div>周三</div>
+                <div>周四</div>
+                <div>周五</div>
+                <div>周六</div>
+            </div>
+            <div class="calendar-days" id="calendar-days">
+                <!-- 日历日期将通过JavaScript动态生成 -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- 添加任务模态框 -->
+    <div class="modal" id="task-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="modal-title">添加今日任务</div>
+                <button class="close-modal" id="close-modal">×</button>
+            </div>
+            <form class="task-form" id="task-form">
+                <input type="text" id="task-title" placeholder="任务标题" required>
+                <textarea id="task-description" placeholder="任务描述（可选）"></textarea>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="cancel-task">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // 应用状态
+        let state = {
+            currentDate: new Date(),
+            tasks: JSON.parse(localStorage.getItem('tasks')) || [],
+            selectedDate: null
+        };
+
+        // DOM元素
+        const elements = {
+            currentMonth: document.getElementById('current-month'),
+            calendarDays: document.getElementById('calendar-days'),
+            prevMonth: document.getElementById('prev-month'),
+            nextMonth: document.getElementById('next-month'),
+            taskModal: document.getElementById('task-modal'),
+            closeModal: document.getElementById('close-modal'),
+            cancelTask: document.getElementById('cancel-task'),
+            taskForm: document.getElementById('task-form'),
+            taskTitle: document.getElementById('task-title'),
+            taskDescription: document.getElementById('task-description'),
+            modalTitle: document.getElementById('modal-title'),
+            newTaskInput: document.getElementById('new-task-input'),
+            addTaskBtn: document.getElementById('add-task-btn'),
+            taskList: document.getElementById('task-list')
+        };
+
+        // 初始化应用
+        function init() {
+            renderCalendar();
+            renderTaskList();
+            
+            // 事件监听
+            elements.prevMonth.addEventListener('click', goToPrevMonth);
+            elements.nextMonth.addEventListener('click', goToNextMonth);
+            elements.closeModal.addEventListener('click', closeModal);
+            elements.cancelTask.addEventListener('click', closeModal);
+            elements.taskForm.addEventListener('submit', handleTaskSubmit);
+            elements.addTaskBtn.addEventListener('click', addPriorityTask);
+            elements.newTaskInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    addPriorityTask();
+                }
+            });
+        }
+
+        // 渲染日历
+        function renderCalendar() {
+            const year = state.currentDate.getFullYear();
+            const month = state.currentDate.getMonth();
+            
+            // 更新月份标题
+            elements.currentMonth.textContent = `${year}年${month + 1}月`;
+            
+            // 获取当月第一天和最后一天
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            
+            // 获取当月天数
+            const daysInMonth = lastDay.getDate();
+            
+            // 获取当月第一天是星期几 (0 = 周日, 6 = 周六)
+            const firstDayIndex = firstDay.getDay();
+            
+            // 清空日历
+            elements.calendarDays.innerHTML = '';
+            
+            // 添加空白日期
+            for (let i = 0; i < firstDayIndex; i++) {
+                const emptyDay = document.createElement('div');
+                emptyDay.className = 'calendar-day empty';
+                elements.calendarDays.appendChild(emptyDay);
+            }
+            
+            // 添加日期
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            for (let i = 1; i <= daysInMonth; i++) {
+                const day = document.createElement('div');
+                day.className = 'calendar-day';
+                
+                const date = new Date(year, month, i);
+                date.setHours(0, 0, 0, 0);
+                
+                if (date.getTime() === today.getTime()) {
+                    day.classList.add('today');
+                }
+                
+                const dayNumber = document.createElement('div');
+                dayNumber.className = 'day-number';
+                dayNumber.textContent = i;
+                day.appendChild(dayNumber);
+                
+                const dayTasks = document.createElement('div');
+                dayTasks.className = 'day-tasks';
+                
+                // 获取当天的任务
+                const tasksForDay = state.tasks.filter(task => {
+                    if (!task.date) return false;
+                    const taskDate = new Date(task.date);
+                    taskDate.setHours(0, 0, 0, 0);
+                    return taskDate.getTime() === date.getTime();
+                });
+                
+                tasksForDay.forEach(task => {
+                    const taskElement = document.createElement('div');
+                    taskElement.className = `day-task ${task.completed ? 'completed' : ''}`;
+                    taskElement.dataset.id = task.id;
+                    
+                    const checkbox = document.createElement('div');
+                    checkbox.className = 'day-task-checkbox';
+                    checkbox.innerHTML = task.completed ? '✓' : '';
+                    checkbox.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        toggleTaskCompletion(task.id);
+                    });
+                    
+                    const taskText = document.createElement('div');
+                    taskText.className = 'day-task-text';
+                    taskText.textContent = task.title;
+                    
+                    taskElement.appendChild(checkbox);
+                    taskElement.appendChild(taskText);
+                    dayTasks.appendChild(taskElement);
+                });
+                
+                day.appendChild(dayTasks);
+                
+                // 点击日期打开任务模态框
+                day.addEventListener('click', () => {
+                    state.selectedDate = date;
+                    elements.modalTitle.textContent = `${year}年${month + 1}月${i}日的任务`;
+                    openModal();
+                });
+                
+                elements.calendarDays.appendChild(day);
+            }
+        }
+
+        // 渲染任务列表
+        function renderTaskList() {
+            elements.taskList.innerHTML = '';
+            
+            // 获取没有日期的任务（优先任务）
+            const priorityTasks = state.tasks.filter(task => !task.date);
+            
+            if (priorityTasks.length === 0) {
+                const emptyMessage = document.createElement('div');
+                emptyMessage.className = 'empty-message';
+                emptyMessage.textContent = '暂无优先任务';
+                emptyMessage.style.textAlign = 'center';
+                emptyMessage.style.padding = '20px';
+                emptyMessage.style.color = '#888';
+                elements.taskList.appendChild(emptyMessage);
+                return;
+            }
+            
+            priorityTasks.forEach(task => {
+                const taskItem = document.createElement('div');
+                taskItem.className = `task-item ${task.completed ? 'completed' : ''}`;
+                taskItem.dataset.id = task.id;
+                
+                const checkbox = document.createElement('div');
+                checkbox.className = 'checkbox';
+                checkbox.innerHTML = task.completed ? '✓' : '';
+                checkbox.addEventListener('click', () => toggleTaskCompletion(task.id));
+                
+                const taskText = document.createElement('div');
+                taskText.className = 'task-text';
+                taskText.textContent = task.title;
+                
+                taskItem.appendChild(checkbox);
+                taskItem.appendChild(taskText);
+                elements.taskList.appendChild(taskItem);
+            });
+        }
+
+        // 切换到上个月
+        function goToPrevMonth() {
+            state.currentDate.setMonth(state.currentDate.getMonth() - 1);
+            renderCalendar();
+        }
+
+        // 切换到下个月
+        function goToNextMonth() {
+            state.currentDate.setMonth(state.currentDate.getMonth() + 1);
+            renderCalendar();
+        }
+
+        // 打开模态框
+        function openModal() {
+            elements.taskModal.style.display = 'flex';
+            elements.taskTitle.focus();
+        }
+
+        // 关闭模态框
+        function closeModal() {
+            elements.taskModal.style.display = 'none';
+            elements.taskForm.reset();
+        }
+
+        // 处理任务提交
+        function handleTaskSubmit(e) {
+            e.preventDefault();
+            
+            const title = elements.taskTitle.value.trim();
+            const description = elements.taskDescription.value.trim();
+            
+            if (!title) return;
+            
+            const newTask = {
+                id: Date.now().toString(),
+                title,
+                description,
+                date: state.selectedDate ? state.selectedDate.toISOString() : null,
+                completed: false
+            };
+            
+            state.tasks.push(newTask);
+            saveTasks();
+            
+            if (state.selectedDate) {
+                renderCalendar();
+            } else {
+                renderTaskList();
+            }
+            
+            closeModal();
+        }
+
+        // 添加优先任务
+        function addPriorityTask() {
+            const title = elements.newTaskInput.value.trim();
+            
+            if (!title) return;
+            
+            const newTask = {
+                id: Date.now().toString(),
+                title,
+                description: '',
+                date: null,
+                completed: false
+            };
+            
+            state.tasks.push(newTask);
+            saveTasks();
+            renderTaskList();
+            
+            elements.newTaskInput.value = '';
+        }
+
+        // 切换任务完成状态
+        function toggleTaskCompletion(taskId) {
+            const task = state.tasks.find(t => t.id === taskId);
+            if (task) {
+                task.completed = !task.completed;
+                saveTasks();
+                renderTaskList();
+                renderCalendar();
+            }
+        }
+
+        // 保存任务到本地存储
+        function saveTasks() {
+            localStorage.setItem('tasks', JSON.stringify(state.tasks));
+        }
+
+        // 初始化应用
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
