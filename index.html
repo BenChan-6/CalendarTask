@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskFlow - 智能任务管理</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #4a6fa5;
+            --secondary-color: #6b8cbc;
+            --accent-color: #ff7b54;
+            --light-color: #f5f7fa;
+            --dark-color: #2c3e50;
+            --border-radius: 8px;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --completed-color: #888;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f0f2f5;
+            color: var(--dark-color);
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        .sidebar {
+            width: 300px;
+            background-color: white;
+            padding: 20px;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            margin-bottom: 30px;
+            color: var(--primary-color);
+        }
+        
+        .logo i {
+            font-size: 24px;
+            margin-right: 10px;
+        }
+        
+        .logo h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        .section-title {
+            font-size: 16px; /* 调整为16px，使其像一个子标题 */
+            margin: 20px 0 15px;
+            color: var(--dark-color);
+            border-bottom: 1px solid #eee;
+            padding-bottom: 8px;
+        }
+        
+        .task-input {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        
+        .task-input input, .task-input textarea {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius) 0 0 var(--border-radius);
+            outline: none;
+            transition: border-color 0.3s;
+            resize: none;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.4;
+            min-height: 46px;
+        }
+        
+        .task-input textarea {
+            max-height: 150px;
+            overflow-y: auto;
+            height: auto;
+        }
+
+        .task-input input:focus, .task-input textarea:focus {
+            border-color: var(--primary-color);
+        }
+        
+        .task-input button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0 20px;
+            border-radius: 0 var(--border-radius) var(--border-radius) 0;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .task-input button:hover {
+            background-color: var(--secondary-color);
+        }
+        
+        .task-list {
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 1px;
+        }
+
+        /* ----------------------------------------
+         * 新增：分组样式
+         * ---------------------------------------- */
+        
+        #add-group-btn {
+            width: 100%;
+            margin-bottom: 15px;
+            background-color: #f0f2f5;
+            color: var(--dark-color);
+            font-weight: 600;
+        }
+        #add-group-btn:hover {
+            background-color: #e4e7eb;
+        }
+
+        .task-group {
+            margin-bottom: 15px;
+        }
+
+        .task-group-header {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            background-color: var(--light-color);
+            border-radius: var(--border-radius);
+            margin-bottom: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .task-group-header .collapse-icon {
+            margin-right: 8px;
+            transition: transform 0.2s;
+        }
+
+        .task-group.collapsed .collapse-icon {
+            transform: rotate(-90deg);
+        }
+
+        .task-group-header span {
+            flex: 1;
+            user-select: none; /* 防止选中文本 */
+        }
+        
+        /* 拖放到分组列表时的样式 */
+        .task-group-list, .task-list-ungrouped {
+            min-height: 10px; /* 允许拖放到空列表 */
+            border-radius: var(--border-radius);
+            padding: 1px; /* 确保有区域 */
+        }
+
+        .task-group-list.over, .task-list-ungrouped.over {
+            border: 2px dashed var(--primary-color);
+            background-color: var(--light-color);
+        }
+
+        .task-group-list.collapsed {
+            display: none;
+        }
+
+        /* ----------------------------------------
+         * 任务项样式 (Task Item)
+         * ---------------------------------------- */
+        
+        .task-item {
+            background-color: white; /* 更新：使用白色背景，在light-color上更突出 */
+            border: 1px solid #eee;
+            padding: 12px 15px; /* 更新：调整内边距 */
+            margin-bottom: 10px;
+            border-radius: var(--border-radius);
+            display: flex;
+            align-items: flex-start;
+            cursor: grab;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+            user-select: none;
+        }
+        
+        .task-item:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+            border-color: #ddd;
+        }
+        
+        .task-item.dragging {
+            opacity: 0.5;
+            transform: rotate(5deg);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 拖放悬停在任务项上方的样式 */
+        .task-item.over {
+            background-color: #f0fff0;
+            border-top: 2px solid var(--accent-color);
+            transform: scale(1.02);
+        }
+        
+        .task-item .drag-handle {
+            margin-right: 10px;
+            color: #aaa;
+            cursor: grab;
+        }
+        
+        .task-item .checkbox {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--primary-color);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-top: 3px;
+            flex-shrink: 0;
+        }
+        
+        .task-item.completed .checkbox {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .task-content {
+            flex: 1;
+            margin-left: 12px;
+        }
+
+        .task-title {
+            font-weight: 600;
+            color: var(--dark-color);
+            word-break: break-word;
+        }
+
+        .task-divider {
+            border-top: 1px solid #eee;
+            margin: 6px 0;
+        }
+
+        .task-description {
+            font-size: 13px;
+            color: #555;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        
+        .task-item.completed .task-title {
+            text-decoration: line-through;
+            color: var(--completed-color);
+        }
+
+        .task-item.completed .task-description {
+            color: var(--completed-color);
+            opacity: 0.8;
+        }
+        
+        .main-content {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+        }
+        
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        
+        .month-nav {
+            display: flex;
+            align-items: center;
+        }
+        
+        .month-nav button {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: var(--primary-color);
+            padding: 5px 10px;
+        }
+        
+        .current-month {
+            font-size: 24px;
+            font-weight: 600;
+            margin: 0 15px;
+        }
+        
+        .calendar {
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+        
+        .calendar-weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .calendar-weekdays div {
+            padding: 15px;
+            text-align: center;
+            font-weight: 600;
+        }
+        
+        .calendar-days {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+        }
+        
+        .calendar-day {
+            min-height: 120px;
+            padding: 10px;
+            border: 1px solid #eee;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .calendar-day:hover {
+            background-color: #f9f9f9;
+        }
+        
+        .calendar-day.empty {
+            background-color: #f5f5f5;
+            cursor: default;
+        }
+        
+        .calendar-day.today {
+            background-color: rgba(255, 123, 84, 0.1);
+        }
+        
+        .calendar-day.over {
+            background-color: #f0fff0;
+            border: 2px dashed var(--primary-color);
+        }
+
+        .day-number {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .day-tasks {
+            font-size: 12px;
+            max-height: 80px;
+            overflow-y: auto;
+        }
+        
+        .day-task {
+            background-color: var(--light-color);
+            padding: 3px 6px;
+            border-radius: 4px;
+            margin-bottom: 3px;
+            display: flex;
+            align-items: center;
+            position: relative;
+            cursor: grab;
+        }
+        
+        .day-task.completed {
+            text-decoration: line-through;
+            color: var(--completed-color);
+            opacity: 0.8;
+        }
+        
+        .day-task-checkbox {
+            width: 14px;
+            height: 14px;
+            border: 1px solid var(--primary-color);
+            border-radius: 50%;
+            margin-right: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 10px;
+            transition: background-color 0.2s;
+        }
+        
+        .day-task.completed .day-task-checkbox {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .day-task-text {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background-color: white;
+            width: 500px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 25px;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+        }
+        
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #888;
+        }
+        
+        .task-form input, .task-form textarea {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            outline: none;
+        }
+        
+        .task-form textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.3s;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--secondary-color);
+        }
+        
+        .btn-secondary {
+            background-color: #eee;
+            color: var(--dark-color);
+        }
+        
+        .btn-secondary:hover {
+            background-color: #ddd;
+        }
+        
+        /* 右键菜单样式 */
+        .context-menu {
+            display: none;
+            position: absolute;
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            z-index: 1000;
+            width: 150px;
+            padding: 5px 0;
+        }
+        
+        .context-menu-item {
+            padding: 8px 15px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .context-menu-item:hover {
+            background-color: var(--light-color);
+        }
+        
+        .context-menu-item.delete {
+            color: #e74c3c;
+        }
+        
+        .context-menu-item.delete:hover {
+            background-color: #ffebee;
+        }
+        
+        /* 新增：右键菜单分隔线 */
+        .context-menu-divider {
+            height: 1px;
+            background-color: #eee;
+            margin: 4px 0;
+        }
+        
+        .priority-indicator {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: var(--accent-color);
+            margin-right: 8px;
+            opacity: 0.7;
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                height: auto;
+            }
+            
+            .main-content {
+                padding: 20px;
+            }
+            
+            .calendar-day {
+                min-height: 80px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="logo">
+            <i class="fas fa-tasks"></i>
+            <h1>TaskFlow</h1>
+        </div>
+        
+        <h2 class="section-title">要做的事，任务，目标，梦想！</h2>
+        
+        <div class="task-input">
+            <textarea id="new-task-input" rows="1"></textarea>
+            <button id="add-task-btn">添加</button>
+        </div>
+        
+        <button id="add-group-btn" class="btn btn-secondary">
+            <i class="fas fa-plus"></i> 创建新分组
+        </button>
+        
+        <div class="task-list" id="task-list">
+            </div>
+    </div>
+    
+    <div class="main-content">
+        <div class="calendar-header">
+            <div class="month-nav">
+                <button id="prev-month"><i class="fas fa-chevron-left"></i></button>
+                <div class="current-month" id="current-month">2023年11月</div>
+                <button id="next-month"><i class="fas fa-chevron-right"></i></button>
+            </div>
+        </div>
+        
+        <div class="calendar">
+            <div class="calendar-weekdays">
+                <div>星期日</div>
+                <div>星期一</div>
+                <div>星期二</div>
+                <div>星期三</div>
+                <div>星期四</div>
+                <div>星期五</div>
+                <div>星期六</div>
+            </div>
+            <div class="calendar-days" id="calendar-days">
+                </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="task-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="modal-title">添加今日任务</div>
+                <button class="close-modal" id="close-modal">×</button>
+            </div>
+            <form class="task-form" id="task-form">
+                <input type="text" id="task-title" placeholder="任务标题" required>
+                <textarea id="task-description" placeholder="任务描述（可选）"></textarea>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="cancel-task">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="context-menu" id="context-menu">
+        <div class="context-menu-item complete">标记完成</div>
+        <div class="context-menu-item edit">编辑任务</div>
+        <div class="context-menu-item delete">删除任务</div>
+        </div>
+
+    <script>
+        // ----------------------------------------
+        // 应用状态 (State)
+        // ----------------------------------------
+        let state = {
+            currentDate: new Date(),
+            // 所有任务的平面列表
+            tasks: JSON.parse(localStorage.getItem('tasks')) || [],
+            // 新增：分组
+            groups: JSON.parse(localStorage.getItem('groups')) || [],
+            selectedDate: null,
+            contextMenuTaskId: null,
+            dragSrcEl: null,
+            editingTaskId: null,
+            draggingCalendarTaskId: null
+        };
+
+        // ----------------------------------------
+        // DOM元素
+        // ----------------------------------------
+        const elements = {
+            currentMonth: document.getElementById('current-month'),
+            calendarDays: document.getElementById('calendar-days'),
+            prevMonth: document.getElementById('prev-month'),
+            nextMonth: document.getElementById('next-month'),
+            taskModal: document.getElementById('task-modal'),
+            closeModal: document.getElementById('close-modal'),
+            cancelTask: document.getElementById('cancel-task'),
+            taskForm: document.getElementById('task-form'),
+            taskTitle: document.getElementById('task-title'),
+            taskDescription: document.getElementById('task-description'),
+            modalTitle: document.getElementById('modal-title'),
+            newTaskInput: document.getElementById('new-task-input'),
+            addTaskBtn: document.getElementById('add-task-btn'),
+            taskList: document.getElementById('task-list'),
+            contextMenu: document.getElementById('context-menu'),
+            addGroupBtn: document.getElementById('add-group-btn') // 新增
+        };
+
+        // ----------------------------------------
+        // 初始化
+        // ----------------------------------------
+        function init() {
+            renderCalendar();
+            renderTaskList();
+            
+            // 事件监听
+            elements.prevMonth.addEventListener('click', goToPrevMonth);
+            elements.nextMonth.addEventListener('click', goToNextMonth);
+            elements.closeModal.addEventListener('click', closeModal);
+            elements.cancelTask.addEventListener('click', closeModal);
+            elements.taskForm.addEventListener('submit', handleTaskSubmit);
+            elements.addTaskBtn.addEventListener('click', addPriorityTask);
+            elements.addGroupBtn.addEventListener('click', addNewGroup); // 新增
+            
+            elements.newTaskInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    addPriorityTask();
+                }
+            });
+            elements.newTaskInput.addEventListener('input', autoResizeTextarea);
+            
+            // 右键菜单事件
+            document.addEventListener('click', closeContextMenu);
+            document.addEventListener('contextmenu', function(e) {
+                let taskElement = e.target.closest('.task-item, .day-task');
+                if (taskElement && taskElement.dataset.id) {
+                    e.preventDefault();
+                    showContextMenu(e, taskElement.dataset.id);
+                } else {
+                    closeContextMenu();
+                }
+            });
+            
+            // 右键菜单项点击事件 (静态项)
+            document.querySelector('.context-menu-item.complete').addEventListener('click', handleContextComplete);
+            document.querySelector('.context-menu-item.edit').addEventListener('click', handleContextEdit);
+            document.querySelector('.context-menu-item.delete').addEventListener('click', handleContextDelete);
+
+            // 任务列表容器的拖放事件 (用于拖放到"未分组"的末尾)
+            // 移除旧的，因为 taskList 现在包含了组
+        }
+
+        function autoResizeTextarea() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        }
+
+        // ----------------------------------------
+        // 渲染日历 (不变)
+        // ----------------------------------------
+        function renderCalendar() {
+            const year = state.currentDate.getFullYear();
+            const month = state.currentDate.getMonth();
+            
+            elements.currentMonth.textContent = `${year}年${month + 1}月`;
+            
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const daysInMonth = lastDay.getDate();
+            const firstDayIndex = firstDay.getDay();
+            
+            elements.calendarDays.innerHTML = '';
+            
+            for (let i = 0; i < firstDayIndex; i++) {
+                const emptyDay = document.createElement('div');
+                emptyDay.className = 'calendar-day empty';
+                elements.calendarDays.appendChild(emptyDay);
+            }
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            for (let i = 1; i <= daysInMonth; i++) {
+                const day = document.createElement('div');
+                day.className = 'calendar-day';
+                
+                const date = new Date(year, month, i);
+                date.setHours(0, 0, 0, 0);
+                
+                if (date.getTime() === today.getTime()) {
+                    day.classList.add('today');
+                }
+
+                day.dataset.date = date.toISOString();
+                day.addEventListener('dragover', handleCalendarDayDragOver);
+                day.addEventListener('dragenter', handleCalendarDayDragEnter);
+                day.addEventListener('dragleave', handleCalendarDayDragLeave);
+                day.addEventListener('drop', handleCalendarDayDrop);
+                
+                const dayNumber = document.createElement('div');
+                dayNumber.className = 'day-number';
+                dayNumber.textContent = i;
+                day.appendChild(dayNumber);
+                
+                const dayTasks = document.createElement('div');
+                dayTasks.className = 'day-tasks';
+                
+                const tasksForDay = state.tasks.filter(task => {
+                    if (!task.date) return false;
+                    const taskDate = new Date(task.date);
+                    taskDate.setHours(0, 0, 0, 0);
+                    return taskDate.getTime() === date.getTime();
+                });
+                
+                tasksForDay.forEach(task => {
+                    const taskElement = document.createElement('div');
+                    taskElement.className = `day-task ${task.completed ? 'completed' : ''}`;
+                    taskElement.dataset.id = task.id;
+                    
+                    taskElement.draggable = true;
+                    taskElement.addEventListener('dragstart', handleCalendarTaskDragStart);
+                    taskElement.addEventListener('dragend', handleCalendarTaskDragEnd);
+
+                    const checkbox = document.createElement('div');
+                    checkbox.className = 'day-task-checkbox';
+                    checkbox.innerHTML = task.completed ? '✓' : '';
+                    checkbox.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        toggleTaskCompletion(task.id);
+                    });
+                    
+                    const taskText = document.createElement('div');
+                    taskText.className = 'day-task-text';
+                    taskText.textContent = task.title;
+                    
+                    taskElement.appendChild(checkbox);
+                    taskElement.appendChild(taskText);
+                    dayTasks.appendChild(taskElement);
+                });
+                
+                day.appendChild(dayTasks);
+                
+                day.addEventListener('click', () => {
+                    state.selectedDate = date;
+                    elements.modalTitle.textContent = `${year}年${month + 1}月${i}日的任务`;
+                    state.editingTaskId = null;
+                    openModal();
+                });
+                
+                elements.calendarDays.appendChild(day);
+            }
+        }
+
+        // ----------------------------------------
+        // 渲染任务列表 (重构)
+        // ----------------------------------------
+        function renderTaskList() {
+            elements.taskList.innerHTML = '';
+            const groupedTaskIds = new Set();
+            
+            // 1. 渲染分组
+            state.groups.forEach(group => {
+                const groupElement = document.createElement('div');
+                groupElement.className = `task-group ${group.collapsed ? 'collapsed' : ''}`;
+                groupElement.dataset.groupId = group.id;
+
+                // 组标题
+                const header = document.createElement('div');
+                header.className = 'task-group-header';
+                header.innerHTML = `
+                    <i class="fas fa-chevron-down collapse-icon"></i>
+                    <span>${group.name}</span>
+                `;
+                header.addEventListener('click', () => toggleGroupCollapse(group.id));
+                
+                // 组的任务列表
+                const list = document.createElement('div');
+                list.className = `task-group-list ${group.collapsed ? 'collapsed' : ''}`;
+                list.dataset.groupId = group.id;
+                
+                // 添加 D&D 监听器 (用于接收任务)
+                addDropListenersToContainer(list);
+                
+                group.taskIds.forEach((taskId, index) => {
+                    groupedTaskIds.add(taskId);
+                    const task = state.tasks.find(t => t.id === taskId);
+                    
+                    if (task) {
+                        const taskItem = createTaskElement(task, index);
+                        list.appendChild(taskItem);
+                    }
+                });
+
+                groupElement.appendChild(header);
+                groupElement.appendChild(list);
+                elements.taskList.appendChild(groupElement);
+            });
+
+            // 2. 渲染未分组任务
+            const ungroupedTitle = document.createElement('h3');
+            ungroupedTitle.className = 'section-title';
+            ungroupedTitle.textContent = '未分组任务';
+            elements.taskList.appendChild(ungroupedTitle);
+
+            const ungroupedList = document.createElement('div');
+            ungroupedList.className = 'task-list-ungrouped';
+            ungroupedList.dataset.groupId = 'ungrouped'; // 特殊标识
+            addDropListenersToContainer(ungroupedList);
+            
+            const priorityTasks = state.tasks.filter(task => !task.date && !groupedTaskIds.has(task.id));
+            
+            if (priorityTasks.length === 0) {
+                const emptyMessage = document.createElement('div');
+                emptyMessage.textContent = '暂无任务';
+                emptyMessage.style.textAlign = 'center';
+                emptyMessage.style.padding = '20px';
+                emptyMessage.style.color = '#888';
+                ungroupedList.appendChild(emptyMessage);
+            } else {
+                priorityTasks.forEach((task, index) => {
+                    const taskItem = createTaskElement(task, index);
+                    ungroupedList.appendChild(taskItem);
+                });
+            }
+            elements.taskList.appendChild(ungroupedList);
+        }
+
+        // 辅助函数：创建任务DOM元素
+        function createTaskElement(task, index) {
+            const taskItem = document.createElement('div');
+            taskItem.className = `task-item ${task.completed ? 'completed' : ''}`;
+            taskItem.dataset.id = task.id;
+            taskItem.draggable = true;
+            
+            const dragHandle = document.createElement('div');
+            dragHandle.className = 'drag-handle';
+            dragHandle.innerHTML = '<i class="fas fa-grip-lines"></i>';
+            
+            const priorityIndicator = document.createElement('div');
+            priorityIndicator.className = 'priority-indicator';
+            priorityIndicator.style.opacity = 1 - (index * 0.2);
+            
+            const checkbox = document.createElement('div');
+            checkbox.className = 'checkbox';
+            checkbox.innerHTML = task.completed ? '✓' : '';
+            checkbox.addEventListener('click', () => toggleTaskCompletion(task.id));
+            
+            const taskContent = document.createElement('div');
+            taskContent.className = 'task-content';
+
+            const taskTitle = document.createElement('div');
+            taskTitle.className = 'task-title';
+            taskTitle.textContent = task.title;
+            
+            taskContent.appendChild(taskTitle);
+
+            if (task.description && task.description.trim() !== '') {
+                const divider = document.createElement('div');
+                divider.className = 'task-divider';
+                taskContent.appendChild(divider);
+
+                const taskDescription = document.createElement('div');
+                taskDescription.className = 'task-description';
+                taskDescription.textContent = task.description;
+                taskContent.appendChild(taskDescription);
+            }
+            
+            taskItem.appendChild(dragHandle);
+            taskItem.appendChild(priorityIndicator);
+            taskItem.appendChild(checkbox);
+            taskItem.appendChild(taskContent);
+            
+            // 拖拽事件 (用于排序和移动)
+            taskItem.addEventListener('dragstart', handleDragStart);
+            taskItem.addEventListener('dragover', handleDragOver);
+            taskItem.addEventListener('dragenter', handleDragEnter);
+            taskItem.addEventListener('dragleave', handleDragLeave);
+            taskItem.addEventListener('drop', handleDropOnTask); // 拖到任务上 (排序)
+            taskItem.addEventListener('dragend', handleDragEnd);
+            
+            return taskItem;
+        }
+
+        // ----------------------------------------
+        // 侧边栏拖拽处理 (重构)
+        // ----------------------------------------
+
+        // 辅助函数：为容器 (组/未分组) 添加 D&D 监听器
+        function addDropListenersToContainer(container) {
+            container.addEventListener('dragover', handleDragOverContainer);
+            container.addEventListener('dragenter', handleDragEnterContainer);
+            container.addEventListener('dragleave', handleDragLeaveContainer);
+            container.addEventListener('drop', handleDropOnContainer); // 拖到容器上 (移动)
+        }
+
+        // 当拖拽一个任务时
+        function handleDragStart(e) {
+            this.classList.add('dragging'); // 使用 class 替代 opacity
+            state.dragSrcEl = this;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', this.dataset.id);
+        }
+        
+        // --- 拖拽悬停在 *另一个任务* 上方 (用于排序) ---
+        function handleDragOver(e) {
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+
+        function handleDragEnter(e) {
+            // 只处理任务项的进入
+            if (this.classList.contains('task-item')) {
+                 this.classList.add('over');
+            }
+        }
+
+        function handleDragLeave(e) {
+            if (this.classList.contains('task-item')) {
+                this.classList.remove('over');
+            }
+        }
+        
+        // --- 拖拽悬停在 *容器* 上方 (用于移动分组) ---
+        function handleDragOverContainer(e) {
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+
+        function handleDragEnterContainer(e) {
+            // 确保是容器
+            if (this.classList.contains('task-group-list') || this.classList.contains('task-list-ungrouped')) {
+                this.classList.add('over');
+            }
+        }
+
+        function handleDragLeaveContainer(e) {
+            if (this.classList.contains('task-group-list') || this.classList.contains('task-list-ungrouped')) {
+                this.classList.remove('over');
+            }
+        }
+
+        // --- 释放 ---
+
+        // 1. 释放在 *另一个任务* 上 (触发排序)
+        function handleDropOnTask(e) {
+            if (e.stopPropagation) {
+                e.stopPropagation();
+            }
+            
+            if (state.dragSrcEl && state.dragSrcEl !== this) {
+                const draggedId = state.dragSrcEl.dataset.id;
+                const targetId = this.dataset.id;
+                const targetContainer = this.closest('[data-group-id]');
+                const targetGroupId = targetContainer.dataset.groupId;
+                
+                // 调用新的移动和排序函数
+                moveTaskToGroup(draggedId, targetGroupId, targetId);
+            }
+            
+            return false;
+        }
+
+        // 2. 释放在 *容器* 上 (触发移动到末尾)
+        function handleDropOnContainer(e) {
+            if (e.stopPropagation) {
+                e.stopPropagation();
+            }
+            
+            const targetGroupId = this.dataset.groupId;
+
+            if (state.dragSrcEl) {
+                const draggedId = state.dragSrcEl.dataset.id;
+                // 移动到该组的末尾 (targetId = null)
+                moveTaskToGroup(draggedId, targetGroupId, null);
+            }
+            
+            return false;
+        }
+
+        // 拖拽结束 (清理)
+        function handleDragEnd(e) {
+            // 清理所有任务项和容器的 'over' 和 'dragging' 状态
+            document.querySelectorAll('.task-item, .task-group-list, .task-list-ungrouped').forEach(el => {
+                el.classList.remove('over');
+                el.classList.remove('dragging');
+            });
+            state.dragSrcEl = null;
+        }
+
+        // ----------------------------------------
+        // 日历拖拽处理 (不变)
+        // ----------------------------------------
+        
+        function handleCalendarTaskDragStart(e) {
+            state.draggingCalendarTaskId = this.dataset.id;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', this.dataset.id);
+            this.style.opacity = '0.5';
+        }
+
+        function handleCalendarTaskDragEnd(e) {
+            this.style.opacity = '1';
+            document.querySelectorAll('.calendar-day.over').forEach(day => day.classList.remove('over'));
+            state.draggingCalendarTaskId = null;
+        }
+        
+        function handleCalendarDayDragOver(e) {
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+
+        function handleCalendarDayDragEnter(e) {
+            if (this.classList.contains('empty')) return;
+            this.classList.add('over');
+        }
+
+        function handleCalendarDayDragLeave(e) {
+            this.classList.remove('over');
+        }
+
+        function handleCalendarDayDrop(e) {
+            if (e.stopPropagation) {
+                e.stopPropagation();
+            }
+            this.classList.remove('over');
+            
+            const newDate = this.dataset.date;
+            
+            if (state.draggingCalendarTaskId) {
+                // 1. 日历任务 -> 日历
+                const taskId = state.draggingCalendarTaskId;
+                const task = state.tasks.find(t => t.id === taskId);
+                
+                if (task && task.date !== newDate) {
+                    task.date = newDate;
+                    saveState();
+                    renderCalendar();
+                }
+            } else if (state.dragSrcEl) {
+                // 2. 侧边栏任务 -> 日历
+                const taskId = state.dragSrcEl.dataset.id;
+                const task = state.tasks.find(t => t.id === taskId);
+                
+                if (task) {
+                    task.date = newDate; // 分配日期
+                    
+                    // 从分组中移除
+                    state.groups.forEach(group => {
+                        group.taskIds = group.taskIds.filter(id => id !== taskId);
+                    });
+                    
+                    saveState();
+                    renderCalendar();
+                    renderTaskList(); // 任务将从侧边栏消失
+                }
+            }
+            
+            state.draggingCalendarTaskId = null;
+            state.dragSrcEl = null; 
+            
+            return false;
+        }
+
+
+        // ----------------------------------------
+        // 任务管理 (Task Management)
+        // ----------------------------------------
+
+        function goToPrevMonth() {
+            state.currentDate.setMonth(state.currentDate.getMonth() - 1);
+            renderCalendar();
+        }
+
+        function goToNextMonth() {
+            state.currentDate.setMonth(state.currentDate.getMonth() + 1);
+            renderCalendar();
+        }
+
+        function openModal() {
+            elements.taskModal.style.display = 'flex';
+            elements.taskTitle.focus();
+        }
+
+        function closeModal() {
+            elements.taskModal.style.display = 'none';
+            elements.taskForm.reset();
+            state.selectedDate = null;
+            state.editingTaskId = null;
+        }
+
+        // 处理任务提交（新建和编辑）
+        function handleTaskSubmit(e) {
+            e.preventDefault();
+            
+            const title = elements.taskTitle.value.trim();
+            const description = elements.taskDescription.value.trim();
+            
+            if (!title) return;
+            
+            if (state.editingTaskId) {
+                // 编辑模式
+                const task = state.tasks.find(t => t.id === state.editingTaskId);
+                if (task) {
+                    task.title = title;
+                    task.description = description;
+                }
+            } else {
+                // 新建模式
+                const newTask = {
+                    id: Date.now().toString(),
+                    title,
+                    description,
+                    date: state.selectedDate ? state.selectedDate.toISOString() : null,
+                    completed: false
+                };
+                
+                state.tasks.push(newTask);
+                
+                // 如果是从侧边栏添加的（date: null），自动添加到“未分组”
+                // (渲染时会自动处理)
+            }
+            
+            saveState();
+            renderCalendar();
+            renderTaskList();
+            closeModal();
+        }
+
+        // 添加优先任务 (到"未分组")
+        function addPriorityTask() {
+            const title = elements.newTaskInput.value.trim();
+            
+            if (!title) return;
+            
+            const newTask = {
+                id: Date.now().toString(),
+                title,
+                description: '',
+                date: null,
+                completed: false
+            };
+            
+            state.tasks.push(newTask); // 添加到主任务列表
+            saveState();
+            renderTaskList(); // 渲染时会自动归入"未分组"
+            
+            elements.newTaskInput.value = '';
+            elements.newTaskInput.style.height = 'auto';
+        }
+
+        // 编辑任务
+        function editTask(taskId) {
+            const task = state.tasks.find(t => t.id === taskId);
+            if (!task) return;
+            
+            state.editingTaskId = taskId;
+            
+            elements.taskTitle.value = task.title;
+            elements.taskDescription.value = task.description || '';
+            
+            if (task.date) {
+                const taskDate = new Date(task.date);
+                state.selectedDate = taskDate;
+                elements.modalTitle.textContent = `编辑 ${taskDate.getMonth() + 1}月${taskDate.getDate()}日 的任务`;
+            } else {
+                state.selectedDate = null;
+                elements.modalTitle.textContent = '编辑优先任务';
+            }
+            
+            openModal();
+        }
+
+        function toggleTaskCompletion(taskId) {
+            const task = state.tasks.find(t => t.id === taskId);
+            if (task) {
+                task.completed = !task.completed;
+                saveState();
+                renderTaskList();
+                renderCalendar();
+            }
+        }
+
+        function deleteTask(taskId) {
+            // 1. 从主任务列表删除
+            state.tasks = state.tasks.filter(t => t.id !== taskId);
+            // 2. 从所有分组中删除
+            state.groups.forEach(group => {
+                group.taskIds = group.taskIds.filter(id => id !== taskId);
+            });
+            
+            saveState();
+            renderTaskList();
+            renderCalendar();
+        }
+
+        // ----------------------------------------
+        // 分组管理 (Group Management)
+        // ----------------------------------------
+
+        // 新增：添加新分组
+        function addNewGroup() {
+            const name = prompt('请输入新分组的名称：', '新分组');
+            if (name && name.trim()) {
+                const newGroup = {
+                    id: Date.now().toString(),
+                    name: name.trim(),
+                    taskIds: [],
+                    collapsed: false
+                };
+                state.groups.push(newGroup);
+                saveState();
+                renderTaskList();
+            }
+        }
+
+        // 新增：折叠/展开分组
+        function toggleGroupCollapse(groupId) {
+            const group = state.groups.find(g => g.id === groupId);
+            if (group) {
+                group.collapsed = !group.collapsed;
+                saveState();
+                renderTaskList(); // 重新渲染以应用 .collapsed 类
+            }
+        }
+
+        // 新增：移动任务到分组 (核心逻辑)
+        // targetGroupId: 'g1', 'g2' ... 或 'ungrouped'
+        // targetTaskId: 拖放排序的目标任务ID，如果为 null，则添加到末尾
+        function moveTaskToGroup(taskId, targetGroupId, targetTaskId) {
+            
+            // 1. 从旧位置 (所有分组) 中移除
+            state.groups.forEach(group => {
+                group.taskIds = group.taskIds.filter(id => id !== taskId);
+            });
+            
+            // 2. 添加到新位置
+            if (targetGroupId === 'ungrouped') {
+                // 移动到"未分组"
+                // (已经从分组中移除了，但我们还需要处理排序)
+                // 注意：未分组任务的排序是基于它们在 state.tasks 中的顺序
+                // 这个功能太复杂，暂时不支持对"未分组"进行拖放排序
+                // 仅支持拖入/拖出
+                
+            } else {
+                // 移动到指定分组
+                const targetGroup = state.groups.find(g => g.id === targetGroupId);
+                if (targetGroup) {
+                    
+                    if (targetTaskId) {
+                        // 插入到 targetTaskId 之前
+                        const targetIndex = targetGroup.taskIds.indexOf(targetTaskId);
+                        if (targetIndex > -1) {
+                            targetGroup.taskIds.splice(targetIndex, 0, taskId);
+                        } else {
+                            targetGroup.taskIds.push(taskId); // 备用
+                        }
+                    } else {
+                        // 添加到末尾
+                        targetGroup.taskIds.push(taskId);
+                    }
+                }
+            }
+            
+            saveState();
+            renderTaskList();
+        }
+
+
+        // ----------------------------------------
+        // 状态保存 (State Saving)
+        // ----------------------------------------
+        function saveState() {
+            localStorage.setItem('tasks', JSON.stringify(state.tasks));
+            localStorage.setItem('groups', JSON.stringify(state.groups));
+        }
+
+        // ----------------------------------------
+        // 右键菜单 (Context Menu)
+        // ----------------------------------------
+
+        function showContextMenu(e, taskId) {
+            state.contextMenuTaskId = taskId;
+            
+            // 动态构建菜单
+            buildContextMenu(taskId);
+            
+            elements.contextMenu.style.display = 'block';
+            elements.contextMenu.style.left = e.pageX + 'px';
+            elements.contextMenu.style.top = e.pageY + 'px';
+        }
+        
+        // 新增：动态构建右键菜单
+        function buildContextMenu(taskId) {
+            const task = state.tasks.find(t => t.id === taskId);
+            if (!task) return;
+
+            // 清理旧的动态项
+            elements.contextMenu.querySelectorAll('.dynamic-item').forEach(item => item.remove());
+            
+            // 仅当任务是优先任务 (非日历任务) 时才显示分组选项
+            if (!task.date) {
+                const divider = document.createElement('div');
+                divider.className = 'context-menu-divider dynamic-item';
+                elements.contextMenu.appendChild(divider);
+
+                // 添加"移动到分组"选项
+                state.groups.forEach(group => {
+                    const item = document.createElement('div');
+                    item.className = 'context-menu-item dynamic-item move-to-group';
+                    item.textContent = `移动到: ${group.name}`;
+                    item.dataset.groupId = group.id;
+                    item.addEventListener('click', handleContextMove);
+                    elements.contextMenu.appendChild(item);
+                });
+                
+                // 添加"移动到未分组"
+                const ungroupedItem = document.createElement('div');
+                ungroupedItem.className = 'context-menu-item dynamic-item move-to-group';
+                ungroupedItem.textContent = '移动到: 未分组';
+                ungroupedItem.dataset.groupId = 'ungrouped';
+                ungroupedItem.addEventListener('click', handleContextMove);
+                elements.contextMenu.appendChild(ungroupedItem);
+            }
+        }
+
+        function closeContextMenu() {
+            elements.contextMenu.style.display = 'none';
+            state.contextMenuTaskId = null;
+            // 清理动态项
+            elements.contextMenu.querySelectorAll('.dynamic-item').forEach(item => item.remove());
+        }
+
+        // --- 右键菜单处理器 ---
+        function handleContextComplete() {
+            if (state.contextMenuTaskId) {
+                toggleTaskCompletion(state.contextMenuTaskId);
+                closeContextMenu();
+            }
+        }
+
+        function handleContextEdit() {
+            if (state.contextMenuTaskId) {
+                editTask(state.contextMenuTaskId);
+                closeContextMenu();
+            }
+        }
+        
+        function handleContextDelete() {
+            if (state.contextMenuTaskId) {
+                deleteTask(state.contextMenuTaskId);
+                closeContextMenu();
+            }
+        }
+        
+        function handleContextMove(e) {
+            if (state.contextMenuTaskId) {
+                const targetGroupId = e.target.dataset.groupId;
+                // 移动到末尾 (targetTaskId = null)
+                moveTaskToGroup(state.contextMenuTaskId, targetGroupId, null);
+                closeContextMenu();
+            }
+        }
+
+        // ----------------------------------------
+        // 启动应用
+        // ----------------------------------------
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
